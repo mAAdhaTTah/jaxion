@@ -164,6 +164,15 @@ class ModelTest extends \PHPUnit_Framework_TestCase {
 		$this->assertSame( $keys, $model->get_computed_keys() ); // Test memoizing
 	}
 
+	public function test_should_retrieve_related_keys() {
+		$keys = array( 'children' );
+
+		$model = new PostAndMetaModel;
+
+		$this->assertSame( $keys, $model->get_related_keys() );
+		$this->assertSame( $keys, $model->get_related_keys() ); // Test memoizing
+	}
+
 	public function test_should_serialize_visible_attributes() {
 		$model = new PostAndMetaModel( $args = $this->create_args() );
 

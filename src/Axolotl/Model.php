@@ -31,8 +31,8 @@ abstract class Model implements Serializes {
 	 * @var array
 	 */
 	private $attributes = array(
-		'table' => array(),
-		'object'  => null,
+		'table'  => array(),
+		'object' => null,
 	);
 
 	/**
@@ -41,8 +41,8 @@ abstract class Model implements Serializes {
 	 * @var array
 	 */
 	private $original = array(
-		'table' => array(),
-		'object'  => null,
+		'table'  => array(),
+		'object' => null,
 	);
 
 	/**
@@ -76,6 +76,13 @@ abstract class Model implements Serializes {
 	 * @var array
 	 */
 	protected $visible = array();
+
+	/**
+	 * Relations saved on the Model.
+	 *
+	 * @var array
+	 */
+	protected $related = array();
 
 	/**
 	 * Whether the model's properties are guarded.
@@ -295,6 +302,27 @@ abstract class Model implements Serializes {
 	}
 
 	/**
+	 * Returns the model's keys that are related to other Models.
+	 *
+	 * @return array
+	 */
+	public function get_related_keys() {
+		if ( isset( self::$memo[ get_called_class() ][ __METHOD__ ] ) ) {
+			return self::$memo[ get_called_class() ][ __METHOD__ ];
+		}
+
+		$keys = array();
+
+		foreach ( $this->get_attribute_keys() as $key ) {
+			if ( $this->has_related_method( $key ) ) {
+				$keys[] = $key;
+			}
+		}
+
+		return self::$memo[ get_called_class() ][ __METHOD__ ] = $keys;
+	}
+
+	/**
 	 * Serializes the model's public data into an array.
 	 *
 	 * @return array
@@ -502,6 +530,24 @@ abstract class Model implements Serializes {
 	 */
 	protected function has_compute_method( $name ) {
 		if ( method_exists( $this, $method = "compute_{$name}" ) ) {
+			return $method;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Checks whether the attribute has a compute method.
+	 *
+	 * This is used to determine if the attribute should be computed
+	 * from other attributes.
+	 *
+	 * @param string $name
+	 *
+	 * @return false|string
+	 */
+	protected function has_related_method( $name ) {
+		if ( method_exists( $this, $method = "related_{$name}" ) ) {
 			return $method;
 		}
 
