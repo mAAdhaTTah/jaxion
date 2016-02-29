@@ -2,7 +2,7 @@
 namespace Intraxia\Jaxion\Axolotl;
 
 use Countable;
-use Intraxia\Jaxion\Test\Axolotl\Stub\PostAndMetaModel;
+use Intraxia\Jaxion\Contract\Axolotl\Serializes;
 use Iterator;
 use LogicException;
 use RuntimeException;
@@ -13,7 +13,7 @@ use RuntimeException;
  * @package Intraxia\Jaxion
  * @subpackage Axolotl
  */
-class Collection implements Countable, Iterator {
+class Collection implements Countable, Iterator, Serializes {
 	/**
 	 * Collection elements.
 	 *
@@ -133,6 +133,8 @@ class Collection implements Countable, Iterator {
 	 * Parses the Collection config to set its properties.
 	 *
 	 * @param array $config
+	 *
+	 * @throws LogicException
 	 */
 	protected function parse_config( array $config ) {
 		if ( isset( $config['model'] ) ) {
@@ -144,5 +146,20 @@ class Collection implements Countable, Iterator {
 
 			$this->model = $model;
 		}
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @return array
+	 */
+	public function serialize() {
+		return array_map(function( $element ) {
+			if ( $element instanceof Serializes ) {
+				return $element->serialize();
+			}
+
+			return $element;
+		}, $this->elements);
 	}
 }

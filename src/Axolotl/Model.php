@@ -1,9 +1,9 @@
 <?php
 namespace Intraxia\Jaxion\Axolotl;
 
+use Intraxia\Jaxion\Contract\Axolotl\Serializes;
 use Intraxia\Jaxion\Contract\Axolotl\UsesWordPressPost;
 use LogicException;
-use stdClass;
 use WP_Post;
 
 /**
@@ -17,7 +17,7 @@ use WP_Post;
  * @subpackage Axolotl
  * @since      0.1.0
  */
-abstract class Model {
+abstract class Model implements Serializes {
 	/**
 	 * Memoized values for class methods.
 	 *
@@ -321,7 +321,13 @@ abstract class Model {
 			}
 		}
 
-		return $attributes;
+		return array_map(function( $attribute ) {
+			if ( $attribute instanceof Serializes ) {
+				return $attribute->serialize();
+			}
+
+			return $attribute;
+		}, $attributes);
 	}
 
 	/**

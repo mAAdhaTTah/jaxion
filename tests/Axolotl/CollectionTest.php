@@ -94,4 +94,24 @@ class CollectionTest extends \PHPUnit_Framework_TestCase {
 		$this->assertInstanceOf( EntityManagerTest::POST_AND_META, $collection->at( 1 ) );
 		$this->assertSame( 'Post title 2', $collection->at( 1 )->title );
 	}
+
+	public function test_should_not_change_unserializable() {
+		$args       = array( 'a', 'b' );
+		$collection = new Collection( $args );
+
+		$this->assertSame( $args, $collection->serialize() );
+	}
+
+	public function test_should_serialze_serializables() {
+		$collection = new Collection( array(
+			array(
+				'title' => 'Post title',
+				'text'  => 'Text value',
+			)
+		), array(
+			'model' => EntityManagerTest::POST_AND_META
+		) );
+
+		$this->assertCount( 1, $collection->serialize() );
+	}
 }
