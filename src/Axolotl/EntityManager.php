@@ -1,7 +1,9 @@
 <?php
 namespace Intraxia\Jaxion\Axolotl;
 
+use Intraxia\Jaxion\Axolotl\Relationship\Root as Relationship;
 use Intraxia\Jaxion\Contract\Axolotl\EntityManager as EntityManagerContract;
+use Intraxia\Jaxion\Contract\Axolotl\HasEagerRelationships;
 use Intraxia\Jaxion\Contract\Axolotl\UsesCustomTable;
 use Intraxia\Jaxion\Contract\Axolotl\UsesWordPressPost;
 use LogicException;
@@ -38,6 +40,13 @@ class EntityManager implements EntityManagerContract {
 	protected $wpdb;
 
 	/**
+	 * Found models.
+	 *
+	 * @var array
+	 */
+	private $found = array();
+
+	/**
 	 * EntityManager constructor.
 	 *
 	 * @param WP_Query $main
@@ -64,6 +73,10 @@ class EntityManager implements EntityManagerContract {
 	public function find( $class, $id ) {
 		list( $object, $table ) = $this->extract_args( $class );
 
+		if ( isset( $this->found[ $class ][ $id ] ) ) {
+			return $this->found[ $class ][ $id ];
+		}
+
 		if ( $object ) {
 			$args = array_merge( array(
 				'p' => (int) $id,
@@ -78,21 +91,20 @@ class EntityManager implements EntityManagerContract {
 				);
 			}
 
-			/**
-			 * Found model.
-			 *
-			 * @var Model $model
-			 */
-			$model = new $class( array( 'object' => $posts[0] ) );
+			$model = $this->make_model_from_wp_object(
+				$class,
+				$posts[0],
+				$table
+			);
 
-			if ( $table ) {
-				$this->fill_from_table( $model );
-			} else {
-				$this->fill_from_meta( $model );
-			}
+			$this->register_model( $model );
 		} else {
 			// Custom tables backed only not yet implemented.
 			throw new LogicException;
+		}
+
+		if ( $model instanceof HasEagerRelationships ) {
+			$this->fill_related( $model, $model::get_eager_relationships() );
 		}
 
 		return $model;
@@ -103,9 +115,47 @@ class EntityManager implements EntityManagerContract {
 	 *
 	 * @param string $class
 	 * @param array  $params
+	 *
+	 * @throws LogicException
 	 */
 	public function find_by( $class, $params = array() ) {
-		// TODO: Implement find_by() method.
+		list( $object, $table ) = $this->extract_args( $class );
+
+		$collection = new Collection(
+			array(),
+			array( 'model' => $class )
+		);
+
+		if ( $object ) {
+			$args = array_merge(
+				$params,
+				$this->get_wp_query_args( $class )
+			);
+
+			$posts = $this->main->query( $args );
+
+			foreach ( $posts as $post ) {
+				$model = $this->make_model_from_wp_object(
+					$class,
+					$post,
+					$table
+				);
+
+				$this->register_model( $model );
+				$collection->add( $model );
+			}
+		} else {
+			// Custom tables backed only not yet implemented.
+			throw new LogicException;
+		}
+
+		foreach ( $collection as $model ) {
+			if ( $model instanceof HasEagerRelationships ) {
+				$this->fill_related( $model, $model::get_eager_relationships() );
+			}
+		}
+
+		return $collection;
 	}
 
 	/**
@@ -212,6 +262,31 @@ class EntityManager implements EntityManagerContract {
 	}
 
 	/**
+	 * Builds the provided model class from the a wp object.
+	 *
+	 * @param string $class
+	 * @param object $post
+	 * @param bool   $table
+	 *
+	 * @return Model
+	 */
+	protected function make_model_from_wp_object( $class, $post, $table ) {
+		if ( isset( $this->found[ $class ][ $post->ID ] ) ) {
+			return $this->found[ $class ][ $post->ID ];
+		}
+
+		$model = new $class( array( 'object' => $post ) );
+
+		if ( $table ) {
+			$this->fill_from_table( $model );
+		} else {
+			$this->fill_from_meta( $model );
+		}
+
+		return $model;
+	}
+
+	/**
 	 * Fills the provided Model with its meta attributes.
 	 *
 	 * @param Model $model
@@ -241,12 +316,12 @@ class EntityManager implements EntityManagerContract {
 	 * @param Model $model
 	 */
 	protected function fill_from_table( Model $model ) {
-		$sql[] = "SELECT * FROM {$this->get_table_name( $model )}";
-		$sql[] = "WHERE {$this->get_table_foreign_key( $model )} = %d";
+		$sql[] = "SELECT * FROM {$this->make_table_name( $model )}";
+		$sql[] = "WHERE {$model->get_foreign_key()} = %d";
 
 		$sql = $this->wpdb->prepare(
 			implode( ' ', $sql ),
-			$this->get_primary_id( $model )
+			$model->get_primary_id()
 		);
 
 		$row = $this->wpdb->get_row( $sql, ARRAY_A );
@@ -267,45 +342,50 @@ class EntityManager implements EntityManagerContract {
 	 *
 	 * @return string
 	 */
-	protected function get_table_name( UsesCustomTable $model ) {
+	protected function make_table_name( UsesCustomTable $model ) {
 		return "{$this->wpdb->prefix}{$this->prefix}_{$model::get_table_name()}";
 	}
 
 	/**
-	 * Generates the table foreign key, depending on the model
-	 * implementation.
+	 * Fills the Model with the provided relations.
+	 *
+	 * If no relations are provided, all relations are filled.
 	 *
 	 * @param Model $model
-	 *
-	 * @return string
+	 * @param array $relations
 	 *
 	 * @throws LogicException
 	 */
-	protected function get_table_foreign_key( Model $model ) {
-		if ( $model instanceof UsesWordPressPost ) {
-			return 'post_id';
+	protected function fill_related( Model $model, array $relations = array() ) {
+		if ( ! $relations ) {
+			$relations = $model->get_related_keys();
 		}
 
-		// Model w/o wp_object not yet supported.
-		throw new LogicException;
+		foreach ( $relations as $relation ) {
+			if ( ! in_array( $relation, $model->get_related_keys() ) ) {
+				throw new LogicException;
+			}
+
+			/**
+			 * Model relationship.
+			 *
+			 * @var Relationship $relation
+			 */
+			$relation = $model->{"related_{$relation}"}();
+			$relation->attach_relation( $this );
+		}
 	}
 
 	/**
-	 * Fetches the Model's primary ID, depending on the model
-	 * implementation.
+	 * Registers the found Model with the EntityManager.
 	 *
 	 * @param Model $model
-	 *
-	 * @return int
-	 *
-	 * @throws LogicException
 	 */
-	protected function get_primary_id( Model $model ) {
-		if ( $model instanceof UsesWordPressPost ) {
-			return $model->get_underlying_wp_object()->ID;
+	protected function register_model( Model $model ) {
+		if ( ! isset( $this->found[ get_class( $model ) ] ) ) {
+			$this->found[ get_class( $model ) ] = array();
 		}
 
-		// Model w/o wp_object not yet supported.
-		throw new LogicException;
+		$this->found[ get_class( $model ) ][ $model->get_primary_id() ] = $model;
 	}
 }

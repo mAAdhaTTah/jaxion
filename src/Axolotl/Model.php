@@ -1,9 +1,12 @@
 <?php
 namespace Intraxia\Jaxion\Axolotl;
 
+use Intraxia\Jaxion\Axolotl\Relationship\BelongsToOne;
+use Intraxia\Jaxion\Axolotl\Relationship\HasMany;
 use Intraxia\Jaxion\Contract\Axolotl\Serializes;
 use Intraxia\Jaxion\Contract\Axolotl\UsesWordPressPost;
 use LogicException;
+use RuntimeException;
 use WP_Post;
 
 /**
@@ -232,7 +235,8 @@ abstract class Model implements Serializes {
 			= array_merge(
 				$this->fillable,
 				$this->guarded,
-				$this->get_compute_methods()
+				$this->get_compute_methods(),
+				$this->get_related_methods()
 			);
 	}
 
@@ -250,7 +254,8 @@ abstract class Model implements Serializes {
 
 		foreach ( $this->get_attribute_keys() as $key ) {
 			if ( ! $this->has_map_method( $key ) &&
-			     ! $this->has_compute_method( $key )
+			     ! $this->has_compute_method( $key ) &&
+			     ! $this->has_related_method( $key )
 			) {
 				$keys[] = $key;
 			}
@@ -487,6 +492,8 @@ abstract class Model implements Serializes {
 			$value = $this->attributes['object']->{$this->{$method}()};
 		} elseif ( $method = $this->has_compute_method( $name ) ) {
 			$value = $this->{$method}();
+		} else if ( $method = $this->has_related_method( $name ) ) {
+			$value = $this->get_related( $this->{$method}()->get_sha() );
 		} else {
 			if ( ! isset( $this->attributes['table'][ $name ] ) ) {
 				throw new PropertyDoesNotExistException;
@@ -497,6 +504,67 @@ abstract class Model implements Serializes {
 
 		return $value;
 
+	}
+
+	/**
+	 * Fetches the Model's primary ID, depending on the model
+	 * implementation.
+	 *
+	 * @return int
+	 *
+	 * @throws LogicException
+	 */
+	public function get_primary_id() {
+		if ( $this instanceof UsesWordPressPost ) {
+			return $this->get_underlying_wp_object()->ID;
+		}
+
+		// Model w/o wp_object not yet supported.
+		throw new LogicException;
+	}
+
+	/**
+	 * Generates the table foreign key, depending on the model
+	 * implementation.
+	 *
+	 * @return string
+	 *
+	 * @throws LogicException
+	 */
+	public function get_foreign_key() {
+		if ( $this instanceof UsesWordPressPost ) {
+			return 'post_id';
+		}
+
+		// Model w/o wp_object not yet supported.
+		throw new LogicException;
+	}
+
+	/**
+	 * Gets the related Model or Collection for the given sha.
+	 *
+	 * @param string $sha
+	 *
+	 * @return Model|Collection
+	 */
+	public function get_related( $sha ) {
+		return $this->related[ $sha ];
+	}
+
+	/**
+	 * Sets the related Model or Collection for the given sha.
+	 *
+	 * @param string           $sha
+	 * @param Model|Collection $target
+	 *
+	 * @throws RuntimeException
+	 */
+	public function set_related( $sha, $target ) {
+		if ( ! ( $target instanceof Model ) && ! ( $target instanceof Collection ) ) {
+			throw new RuntimeException;
+		}
+
+		$this->related[ $sha ] = $target;
 	}
 
 	/**
@@ -611,6 +679,49 @@ abstract class Model implements Serializes {
 		}, $methods );
 
 		return $methods;
+	}
+
+	/**
+	 * Retrieves all the related methods on the model.
+	 *
+	 * @return array
+	 */
+	protected function get_related_methods() {
+		$methods = get_class_methods( get_called_class() );
+		$methods = array_filter( $methods, function ( $method ) {
+			return strrpos( $method, 'related_', - strlen( $method ) ) !== false;
+		} );
+		$methods = array_map( function ( $method ) {
+			return substr( $method, strlen( 'related_' ) );
+		}, $methods );
+
+		return $methods;
+	}
+
+	/**
+	 * Returns a HasMany relationship for the model.
+	 *
+	 * @param string $class
+	 * @param string $type
+	 * @param string $foreign_key
+	 *
+	 * @return HasMany
+	 */
+	protected function has_many( $class, $type, $foreign_key ) {
+		return new HasMany( $this, $class, $type, $foreign_key );
+	}
+
+	/**
+	 * Returns a BelongsToOne relationship for the model.
+	 *
+	 * @param string $class
+	 * @param string $type
+	 * @param string $foreign_key
+	 *
+	 * @return HasMany
+	 */
+	protected function belongs_to_one( $class, $type, $foreign_key ) {
+		return new BelongsToOne( $this, $class, $type, $foreign_key );
 	}
 
 	/**

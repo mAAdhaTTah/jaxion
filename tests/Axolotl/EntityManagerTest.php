@@ -41,6 +41,16 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 	/**
 	 * @var string
 	 */
+	const POST_AND_META_WITH_HAS_MANY_BY_PARENT_ID = 'Intraxia\Jaxion\Test\Axolotl\Stub\Relationship\PostAndTableWithHasManyByParentIDModel';
+
+	/**
+	 * @var string
+	 */
+	const POST_AND_META_WITH_BELONGS_TO_ONE_BY_PARENT_ID = 'Intraxia\Jaxion\Test\Axolotl\Stub\Relationship\PostAndTableWithBelongsToOneByParentIDModel';
+
+	/**
+	 * @var string
+	 */
 	const TABLE = 'Intraxia\Jaxion\Test\Axolotl\Stub\TableModel';
 
 	public function setUp() {
@@ -153,6 +163,70 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 		$this->assertSame( 1, $result->ID );
 		$this->assertSame( 'Post title', $result->title );
 		$this->assertSame( 'Text value', $result->text );
+	}
+
+	public function test_should_return_found_post_and_meta_model_with_has_many_by_parent_id() {
+		$parent             = new WP_Post;
+		$parent->ID         = 1;
+		$parent->post_title = 'Post title';
+
+		$this->query
+			->shouldReceive( 'query' )
+			->once()
+			->with( array(
+				'p'         => 1,
+				'post_type' => 'custom',
+			) )
+			->andReturn( array( $parent ) );
+		$child1              = new WP_Post;
+		$child1->ID          = 2;
+		$child1->post_title  = 'Post title';
+		$child1->post_parent = 1;
+
+		$child2              = new WP_Post;
+		$child2->ID          = 3;
+		$child2->post_title  = 'Post title';
+		$child2->post_parent = 1;
+		$this->query
+			->shouldReceive( 'query' )
+			->once()
+			->with( array(
+				'post_parent' => 1,
+				'nopaging'    => true,
+				'post_type'   => 'custom',
+			) )
+			->andReturn( array( $child1, $child2 ) );
+
+		WP_Mock::wpFunction( 'get_post_meta', array(
+			'times'  => 1,
+			'args'   => array( 1, '_ax_text', true ),
+			'return' => 'Text value',
+		) );
+
+		WP_Mock::wpFunction( 'get_post_meta', array(
+			'times'  => 1,
+			'args'   => array( 2, '_ax_text', true ),
+			'return' => 'Text value 2',
+		) );
+
+		WP_Mock::wpFunction( 'get_post_meta', array(
+			'times'  => 1,
+			'args'   => array( 3, '_ax_text', true ),
+			'return' => 'Text value 3',
+		) );
+
+		$result = $this->manager->find( self::POST_AND_META_WITH_HAS_MANY_BY_PARENT_ID, 1 );
+
+		$this->assertInstanceOf( self::POST_AND_META, $result );
+		$this->assertSame( 1, $result->ID );
+		$this->assertSame( 'Post title', $result->title );
+		$this->assertSame( 'Text value', $result->text );
+		$this->assertInstanceOf( 'Intraxia\Jaxion\Axolotl\Collection', $result->children );
+		$this->assertCount( 2, $result->children );
+
+		foreach ( $result->children as $child ) {
+			$this->assertInstanceOf( self::POST_AND_META_WITH_BELONGS_TO_ONE_BY_PARENT_ID, $child );
+		}
 	}
 
 	public function test_find_should_throw_on_unimplemented_feature() {

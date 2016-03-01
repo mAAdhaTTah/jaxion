@@ -1,11 +1,14 @@
 <?php
 namespace Intraxia\Jaxion\Test\Axolotl;
 
+use Intraxia\Jaxion\Axolotl\Collection;
 use Intraxia\Jaxion\Test\Axolotl\Stub\PostAndMetaModel;
+use Intraxia\Jaxion\Test\Axolotl\Stub\Relationship\PostAndTableWithHasManyByParentIDModel;
 use Intraxia\Jaxion\Test\Axolotl\Stub\TableModel;
 use Intraxia\Jaxion\Test\Axolotl\Stub\ModelWithHiddenAttrs;
 use Intraxia\Jaxion\Test\Axolotl\Stub\ModelWithNoHiddenVisibleAttrs;
 use Mockery;
+use stdClass;
 use WP_Post;
 
 /**
@@ -167,10 +170,40 @@ class ModelTest extends \PHPUnit_Framework_TestCase {
 	public function test_should_retrieve_related_keys() {
 		$keys = array( 'children' );
 
-		$model = new PostAndMetaModel;
+		$model = new PostAndTableWithHasManyByParentIDModel;
 
 		$this->assertSame( $keys, $model->get_related_keys() );
 		$this->assertSame( $keys, $model->get_related_keys() ); // Test memoizing
+	}
+
+	public function test_should_retrieve_wordpress_post_primary_id() {
+		$model = new PostAndMetaModel( $this->create_args() );
+
+		$this->assertSame( $model->get_underlying_wp_object()->ID, $model->get_primary_id() );
+	}
+
+	public function test_should_retrieve_wordpress_post_foreign_key() {
+		$model = new PostAndMetaModel( $this->create_args() );
+
+		$this->assertSame( 'post_id', $model->get_foreign_key() );
+	}
+
+	public function test_should_set_get_related() {
+		$related = Mockery::mock( 'Intraxia\Jaxion\Axolotl\Model' );
+		$model   = new PostAndMetaModel( $this->create_args() );
+
+		$model->set_related( '12345', $related );
+
+		$this->assertSame( $related, $model->get_related( '12345' ) );
+	}
+
+	public function test_should_throw_exception_setting_non_model_collection() {
+		$related = new stdClass;
+		$model   = new PostAndMetaModel( $this->create_args() );
+
+		$this->setExpectedException( 'RuntimeException' );
+
+		$model->set_related( '12345', $related );
 	}
 
 	public function test_should_serialize_visible_attributes() {
@@ -207,6 +240,18 @@ class ModelTest extends \PHPUnit_Framework_TestCase {
 		foreach ( $keys as $key ) {
 			$this->assertSame( $model->get_attribute( $key ), $arr[ $key ] );
 		}
+	}
+
+	public function test_should_serialize_serializables() {
+		$model = new PostAndTableWithHasManyByParentIDModel( $this->create_args() );
+		$model->set_related(
+			$model->related_children()->get_sha(),
+			$collection = new Collection
+		);
+
+		$serialized = $model->serialize();
+
+		$this->assertSame( $serialized['children'], $collection->serialize() );
 	}
 
 	public function test_should_copy_attributes_to_original() {
@@ -258,7 +303,7 @@ class ModelTest extends \PHPUnit_Framework_TestCase {
 	 */
 	protected function create_args() {
 		$args = array(
-			'text' => 'Some text',
+			'text'   => 'Some text',
 			'object' => $this->create_post(),
 		);
 
