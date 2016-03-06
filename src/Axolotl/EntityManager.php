@@ -2,6 +2,9 @@
 namespace Intraxia\Jaxion\Axolotl;
 
 use Intraxia\Jaxion\Axolotl\Relationship\Root as Relationship;
+use Intraxia\Jaxion\Axolotl\Repository\AbstractRepository;
+use Intraxia\Jaxion\Axolotl\Repository\CustomTable as CustomTableRepository;
+use Intraxia\Jaxion\Axolotl\Repository\WordPressPost as WordPressPostRepository;
 use Intraxia\Jaxion\Contract\Axolotl\EntityManager as EntityManagerContract;
 use Intraxia\Jaxion\Contract\Axolotl\HasEagerRelationships;
 use Intraxia\Jaxion\Contract\Axolotl\UsesCustomTable;
@@ -40,13 +43,6 @@ class EntityManager implements EntityManagerContract {
 	protected $wpdb;
 
 	/**
-	 * Found models.
-	 *
-	 * @var array
-	 */
-	private $found = array();
-
-	/**
 	 * EntityManager constructor.
 	 *
 	 * @param WP_Query $main
@@ -71,41 +67,14 @@ class EntityManager implements EntityManagerContract {
 	 * @throws LogicException
 	 */
 	public function find( $class, $id ) {
-		list( $object, $table ) = $this->extract_args( $class );
+		$repository = $this->get_repository( $class );
+		$model      = $repository->find( $id );
 
-		if ( isset( $this->found[ $class ][ $id ] ) ) {
-			return $this->found[ $class ][ $id ];
+		if ( is_wp_error( $model ) ) {
+			return $model;
 		}
 
-		if ( $object ) {
-			$args = array_merge( array(
-				'p' => (int) $id,
-			), $this->get_wp_query_args( $class ) );
-
-			$posts = $this->main->query( $args );
-
-			if ( ! $posts ) {
-				return new WP_Error(
-					'not_found',
-					__( 'Entity not found', 'jaxion' )
-				);
-			}
-
-			$model = $this->make_model_from_wp_object(
-				$class,
-				$posts[0],
-				$table
-			);
-
-			$this->register_model( $model );
-		} else {
-			// Custom tables backed only not yet implemented.
-			throw new LogicException;
-		}
-
-		if ( $model instanceof HasEagerRelationships ) {
-			$this->fill_related( $model, $model::get_eager_relationships() );
-		}
+		$this->handle_model( $repository, $model );
 
 		return $model;
 	}
@@ -116,43 +85,16 @@ class EntityManager implements EntityManagerContract {
 	 * @param string $class
 	 * @param array  $params
 	 *
+	 * @return Collection
+	 *
 	 * @throws LogicException
 	 */
 	public function find_by( $class, $params = array() ) {
-		list( $object, $table ) = $this->extract_args( $class );
-
-		$collection = new Collection(
-			array(),
-			array( 'model' => $class )
-		);
-
-		if ( $object ) {
-			$args = array_merge(
-				$params,
-				$this->get_wp_query_args( $class )
-			);
-
-			$posts = $this->main->query( $args );
-
-			foreach ( $posts as $post ) {
-				$model = $this->make_model_from_wp_object(
-					$class,
-					$post,
-					$table
-				);
-
-				$this->register_model( $model );
-				$collection->add( $model );
-			}
-		} else {
-			// Custom tables backed only not yet implemented.
-			throw new LogicException;
-		}
+		$repository = $this->get_repository( $class );
+		$collection = $repository->find_by( $params );
 
 		foreach ( $collection as $model ) {
-			if ( $model instanceof HasEagerRelationships ) {
-				$this->fill_related( $model, $model::get_eager_relationships() );
-			}
+			$this->handle_model( $repository, $model );
 		}
 
 		return $collection;
@@ -163,18 +105,27 @@ class EntityManager implements EntityManagerContract {
 	 *
 	 * @param string $class
 	 * @param array  $data
+	 *
+	 * @return Model|WP_Error
 	 */
 	public function create( $class, $data = array() ) {
-		// TODO: Implement create() method.
+		$repository = $this->get_repository( $class );
+		$model      = $repository->create( $data );
+
+		$this->handle_model( $repository, $model );
+
+		return $model;
 	}
 
 	/**
 	 * {@inheritDoc}
 	 *
 	 * @param Model $model
+	 *
+	 * @return Model|WP_Error
 	 */
 	public function persist( Model $model ) {
-		// TODO: Implement persist() method.
+		return $this->get_repository( get_class( $model ) )->persist( $model );
 	}
 
 	/**
@@ -182,168 +133,86 @@ class EntityManager implements EntityManagerContract {
 	 *
 	 * @param Model $model
 	 * @param bool  $force
+	 *
+	 * @return Model|WP_Error
 	 */
 	public function delete( Model $model, $force = false ) {
-		// TODO: Implement delete() method.
+		return $this->get_repository( get_class( $model ) )->delete( $model, $force );
 	}
 
 	/**
-	 * Retrieves the default query args for the provided class.
-	 *
-	 * @param string $class
-	 *
-	 * @return array
-	 */
-	protected function get_wp_query_args( $class ) {
-		$args = array();
-
-		if ( is_subclass_of(
-			$class,
-			'Intraxia\Jaxion\Contract\Axolotl\UsesWordPressPost'
-		) ) {
-			$args = array(
-				'post_type' => $class::get_post_type(),
-			);
-		}
-
-		return $args;
-	}
-
-	/**
-	 * Generates the unique key for a model's
-	 *
-	 * @param string $key
+	 * Get the EntityManager prefix.
 	 *
 	 * @return string
 	 */
-	protected function create_meta_key( $key ) {
-		return "_{$this->prefix}_{$key}";
+	public function get_prefix() {
+		return $this->prefix;
 	}
 
 	/**
-	 * Ensures the provided class string is the correct class.
+	 * Get the main WP_Query instance.
+	 *
+	 * @return WP_Query
+	 */
+	public function get_main_query() {
+		return $this->main;
+	}
+
+	/**
+	 * Get the wpdb connection instance.
+	 *
+	 * @return wpdb
+	 */
+	public function get_wpdb() {
+		return $this->wpdb;
+	}
+
+	/**
+	 * Retrieves the repository for the given class.
 	 *
 	 * @param string $class
 	 *
-	 * @return array
+	 * @return Repository\AbstractRepository
 	 *
 	 * @throws LogicException
 	 */
-	protected function extract_args( $class ) {
+	protected function get_repository( $class ) {
 		// We can only use Axolotl models.
 		if ( ! is_subclass_of( $class, 'Intraxia\Jaxion\Axolotl\Model' ) ) {
 			throw new LogicException;
 		}
 
-		$object = false;
-		$table  = false;
-
 		if ( is_subclass_of(
 			$class,
 			'Intraxia\Jaxion\Contract\Axolotl\UsesWordPressPost'
 		) ) {
-			$object = true;
+			return new WordPressPostRepository( $this, $class );
 		}
 
 		if ( is_subclass_of(
 			$class,
 			'Intraxia\Jaxion\Contract\Axolotl\UsesCustomTable'
 		) ) {
-			$table = true;
+			throw new LogicException;
 		}
 
 		// If a model doesn't have a backing data source,
 		// the developer needs to fix this immediately.
-		if ( ! $object && ! $table ) {
-			throw new LogicException;
-		}
-
-		return array( $object, $table );
+		throw new LogicException;
 	}
 
 	/**
-	 * Builds the provided model class from the a wp object.
+	 * Ensures the model is registered with the model and fills its relations.
 	 *
-	 * @param string $class
-	 * @param object $post
-	 * @param bool   $table
-	 *
-	 * @return Model
+	 * @param AbstractRepository $repository
+	 * @param Model              $model
 	 */
-	protected function make_model_from_wp_object( $class, $post, $table ) {
-		if ( isset( $this->found[ $class ][ $post->ID ] ) ) {
-			return $this->found[ $class ][ $post->ID ];
+	protected function handle_model( AbstractRepository $repository, Model $model ) {
+		$repository->register_model( $model );
+
+		if ( $model instanceof HasEagerRelationships ) {
+			$this->fill_related( $model, $model::get_eager_relationships() );
 		}
-
-		$model = new $class( array( 'object' => $post ) );
-
-		if ( $table ) {
-			$this->fill_from_table( $model );
-		} else {
-			$this->fill_from_meta( $model );
-		}
-
-		return $model;
-	}
-
-	/**
-	 * Fills the provided Model with its meta attributes.
-	 *
-	 * @param Model $model
-	 */
-	protected function fill_from_meta( $model ) {
-		$model->unguard();
-
-		if ( $model instanceof UsesWordPressPost ) {
-			foreach ( $model->get_table_keys() as $key ) {
-				$model->set_attribute(
-					$key,
-					get_post_meta(
-						$model->get_underlying_wp_object()->ID,
-						$this->create_meta_key( $key ),
-						true
-					)
-				);
-			}
-		}
-
-		$model->reguard();
-	}
-
-	/**
-	 * Fills the provided Model with attributes from its custom table.
-	 *
-	 * @param Model $model
-	 */
-	protected function fill_from_table( Model $model ) {
-		$sql[] = "SELECT * FROM {$this->make_table_name( $model )}";
-		$sql[] = "WHERE {$model->get_foreign_key()} = %d";
-
-		$sql = $this->wpdb->prepare(
-			implode( ' ', $sql ),
-			$model->get_primary_id()
-		);
-
-		$row = $this->wpdb->get_row( $sql, ARRAY_A );
-
-		$model->unguard();
-
-		foreach ( $row as $key => $value ) {
-			$model->set_attribute( $key, $value );
-		}
-
-		$model->reguard();
-	}
-
-	/**
-	 * Creates the table name string for the provided Model.
-	 *
-	 * @param UsesCustomTable $model
-	 *
-	 * @return string
-	 */
-	protected function make_table_name( UsesCustomTable $model ) {
-		return "{$this->wpdb->prefix}{$this->prefix}_{$model::get_table_name()}";
 	}
 
 	/**
@@ -366,6 +235,10 @@ class EntityManager implements EntityManagerContract {
 				throw new LogicException;
 			}
 
+			if ( $model->relation_is_filled( $relation ) ) {
+				continue;
+			}
+
 			/**
 			 * Model relationship.
 			 *
@@ -374,18 +247,5 @@ class EntityManager implements EntityManagerContract {
 			$relation = $model->{"related_{$relation}"}();
 			$relation->attach_relation( $this );
 		}
-	}
-
-	/**
-	 * Registers the found Model with the EntityManager.
-	 *
-	 * @param Model $model
-	 */
-	protected function register_model( Model $model ) {
-		if ( ! isset( $this->found[ get_class( $model ) ] ) ) {
-			$this->found[ get_class( $model ) ] = array();
-		}
-
-		$this->found[ get_class( $model ) ][ $model->get_primary_id() ] = $model;
 	}
 }

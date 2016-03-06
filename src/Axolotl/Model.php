@@ -97,6 +97,13 @@ abstract class Model implements Serializes {
 	protected $is_guarded = true;
 
 	/**
+	 * Whether the Model is having its relations filled.
+	 *
+	 * @var bool
+	 */
+	protected $filling = false;
+
+	/**
 	 * Constructs a new model with provided attributes.
 	 *
 	 * If 'object' is passed as one of the attributes, the underlying post
@@ -354,13 +361,13 @@ abstract class Model implements Serializes {
 			}
 		}
 
-		return array_map(function( $attribute ) {
+		return array_map( function ( $attribute ) {
 			if ( $attribute instanceof Serializes ) {
 				return $attribute->serialize();
 			}
 
 			return $attribute;
-		}, $attributes);
+		}, $attributes );
 	}
 
 	/**
@@ -696,6 +703,40 @@ abstract class Model implements Serializes {
 		}, $methods );
 
 		return $methods;
+	}
+
+	/**
+	 * Returns whether this relation has already been filled on the model.
+	 *
+	 * @param string $relation
+	 *
+	 * @return bool
+	 */
+	public function relation_is_filled( $relation ) {
+		$sha = $this
+			->{$this->has_related_method( $relation )}()
+			->get_sha();
+
+		return isset( $this->related[ $sha ] );
+	}
+
+	/**
+	 * Returns whether the Model is currently having
+	 * its relationships filled.
+	 *
+	 * @return bool
+	 */
+	public function is_filling() {
+		return $this->filling;
+	}
+
+	/**
+	 * Sets whether the Model is having its relationships filled.
+	 *
+	 * @param bool $is_filling
+	 */
+	public function set_filling( $is_filling ) {
+		$this->filling = $is_filling;
 	}
 
 	/**

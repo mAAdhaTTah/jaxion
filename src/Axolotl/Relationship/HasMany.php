@@ -42,6 +42,12 @@ class HasMany extends Root {
 	 * @throws LogicException
 	 */
 	public function attach_relation( EntityManager $database ) {
+		if ( $this->get_model()->is_filling() ) {
+			return;
+		}
+
+		$this->get_model()->set_filling( true );
+
 		switch ( $this->get_type() ) {
 			case 'object':
 				$target = $database->find_by(
@@ -58,6 +64,8 @@ class HasMany extends Root {
 		}
 
 		$this->set_target( $target );
+
+		$this->get_model()->set_filling( false );
 	}
 
 	/**

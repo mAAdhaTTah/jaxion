@@ -39,7 +39,7 @@ interface EntityManager {
 	public function create( $class, $data = array() );
 
 	/**
-	 * Updates a model with its latest dataE.
+	 * Updates a model with its latest data.
 	 *
 	 * @param Model $model
 	 *
@@ -48,12 +48,12 @@ interface EntityManager {
 	public function persist( Model $model );
 
 	/**
-	 * Delete the provide
+	 * Delete the provided Model.
 	 *
 	 * @param Model $model
 	 * @param bool  $force
 	 *
-	 * @return mixed
+	 * @return Model|WP_Error
 	 */
 	public function delete( Model $model, $force = false );
 }

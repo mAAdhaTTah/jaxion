@@ -5,6 +5,7 @@ use Intraxia\Jaxion\Axolotl\EntityManager;
 use Mockery;
 use stdClass;
 use WP_Mock;
+use WP_Mock\Functions;
 use WP_Post;
 
 class EntityManagerTest extends \PHPUnit_Framework_TestCase {
@@ -84,6 +85,10 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 		WP_Mock::wpPassthruFunction( '__', array(
 			'Entity not found',
 			'jaxion'
+		) );
+		WP_Mock::wpFunction( 'is_wp_error', array(
+			'times'  => 1,
+			'return' => true
 		) );
 		$this->query
 			->shouldReceive( 'query' )
