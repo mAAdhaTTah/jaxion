@@ -81,6 +81,15 @@ class HasMany extends Root {
 	}
 
 	/**
+	 * Gets the relationship's foreign key.
+	 *
+	 * @return string
+	 */
+	public function get_foreign_key() {
+		return $this->foreign_key;
+	}
+
+	/**
 	 * Gets the params required for the EntityManager to find the target models.
 	 *
 	 * @return array

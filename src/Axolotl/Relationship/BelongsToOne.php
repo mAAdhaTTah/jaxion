@@ -79,6 +79,15 @@ class BelongsToOne extends Root {
 	}
 
 	/**
+	 * Get the relationship's local key.
+	 *
+	 * @return string
+	 */
+	public function get_local_key() {
+		return $this->local_key;
+	}
+
+	/**
 	 * Gets the ID value for the target model to search by.
 	 *
 	 * @return int|false

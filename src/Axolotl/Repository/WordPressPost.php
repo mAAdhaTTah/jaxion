@@ -2,6 +2,9 @@
 namespace Intraxia\Jaxion\Axolotl\Repository;
 
 use Intraxia\Jaxion\Axolotl\Model;
+use Intraxia\Jaxion\Axolotl\Relationship\BelongsToOne;
+use Intraxia\Jaxion\Axolotl\Relationship\HasMany;
+use Intraxia\Jaxion\Axolotl\Relationship\Root;
 use Intraxia\Jaxion\Contract\Axolotl\UsesWordPressPost;
 use WP_Post;
 
@@ -21,9 +24,9 @@ class WordPressPost extends AbstractWordPress {
 	 * @return WP_Post|false
 	 */
 	protected function get_wp_object_by_id( $id ) {
-		$args = array_merge( array(
+		$args = array_merge( $this->get_wp_query_args(), array(
 			'p' => (int) $id,
-		), $this->get_wp_query_args() );
+		) );
 
 		$object = $this->main->query( $args );
 
@@ -43,8 +46,8 @@ class WordPressPost extends AbstractWordPress {
 	 */
 	protected function get_wp_objects_by_params( $params ) {
 		$args = array_merge(
-			$params,
-			$this->get_wp_query_args()
+			$this->get_wp_query_args(),
+			$params
 		);
 
 		return $this->main->query( $args );
@@ -82,8 +85,32 @@ class WordPressPost extends AbstractWordPress {
 	protected function get_wp_query_args() {
 		$class = $this->class;
 
-		return array(
-			'post_type' => $class::get_post_type(),
+		$args = array(
+			'post_type'   => $class::get_post_type(),
 		);
+
+		/** @var Model $model */
+		$model = new $this->class;
+
+		foreach ( $model->get_related_keys() as $related_key ) {
+			/** @var Root $relation */
+			$relation = $model->{"related_{$related_key}"}();
+
+			if ( $relation instanceof HasMany &&
+			     $relation->get_relationship_type() === 'post_post' &&
+			     $relation->get_foreign_key() === 'post_parent'
+			) {
+				$args['post_parent'] = 0;
+			}
+
+			if ( $relation instanceof BelongsToOne &&
+			     $relation->get_relationship_type() === 'post_post' &&
+			     $relation->get_local_key() === 'post_parent'
+			) {
+				$args['post_parent__not_in'] = array( 0 );
+			}
+		}
+
+		return $args;
 	}
 }

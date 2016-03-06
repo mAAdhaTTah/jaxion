@@ -93,7 +93,7 @@ abstract class Root {
 	 *
 	 * @return string {source}_{dest}
 	 */
-	protected function get_relationship_type() {
+	public function get_relationship_type() {
 		$relationship = '';
 
 		if ( $this->get_model() instanceof UsesWordPressPost ) {

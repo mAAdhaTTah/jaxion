@@ -31,7 +31,6 @@ class BelongsToOneTest extends \PHPUnit_Framework_TestCase {
 
 		$model->related_parent()->attach_relation( $database );
 
-
 		$this->assertSame( $related , $model->parent );
 	}
 

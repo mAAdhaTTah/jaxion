@@ -103,7 +103,7 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 			->once()
 			->with( array(
 				'p'         => 1,
-				'post_type' => 'custom'
+				'post_type' => 'custom',
 			) )
 			->andReturn( array() );
 
@@ -122,7 +122,7 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 			->once()
 			->with( array(
 				'p'         => 1,
-				'post_type' => 'custom'
+				'post_type' => 'custom',
 			) )
 			->andReturn( array( $post ) );
 
@@ -155,7 +155,7 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 			->once()
 			->with( array(
 				'p'         => 1,
-				'post_type' => 'custom'
+				'post_type' => 'custom',
 			) )
 			->andReturn( array( $post ) );
 
@@ -237,8 +237,9 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 			->shouldReceive( 'query' )
 			->once()
 			->with( array(
-				'p'         => 1,
-				'post_type' => 'custom',
+				'p'           => 1,
+				'post_type'   => 'custom',
+				'post_parent' => 0,
 			) )
 			->andReturn( array( $parent ) );
 		$child1              = new WP_Post;
@@ -254,9 +255,10 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 			->shouldReceive( 'query' )
 			->once()
 			->with( array(
-				'post_parent' => 1,
-				'nopaging'    => true,
-				'post_type'   => 'custom',
+				'post_parent'         => 1,
+				'nopaging'            => true,
+				'post_type'           => 'custom',
+				'post_parent__not_in' => array( 0 ),
 			) )
 			->andReturn( array( $child1, $child2 ) );
 
