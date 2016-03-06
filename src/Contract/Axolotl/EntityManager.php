@@ -56,4 +56,12 @@ interface EntityManager {
 	 * @return Model|WP_Error
 	 */
 	public function delete( Model $model, $force = false );
+
+	/**
+	 * Frees all currently managed models from the EntityManager.
+	 *
+	 * This ensures no models are managed by the Manager and all
+	 * future models are refetched from the database.
+	 */
+	public function free();
 }

@@ -242,6 +242,7 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 
 	public function tearDown() {
 		parent::tearDown();
+		$this->manager->free();
 		Mockery::close();
 		WP_Mock::tearDown();
 	}

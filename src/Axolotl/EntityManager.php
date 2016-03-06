@@ -141,6 +141,13 @@ class EntityManager implements EntityManagerContract {
 	}
 
 	/**
+	 * {@inheritDoc}
+	 */
+	public function free() {
+		AbstractRepository::free();
+	}
+
+	/**
 	 * Get the EntityManager prefix.
 	 *
 	 * @return string

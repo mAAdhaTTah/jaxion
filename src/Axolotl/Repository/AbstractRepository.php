@@ -24,6 +24,13 @@ abstract class AbstractRepository {
 	protected static $found = array();
 
 	/**
+	 * Reset the array of found model
+	 */
+	public static function free() {
+		self::$found = array();
+	}
+
+	/**
 	 * Retrieves the retrieved model by class and id.
 	 *
 	 * @param string $class
