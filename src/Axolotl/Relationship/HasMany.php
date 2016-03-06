@@ -8,7 +8,7 @@ use LogicException;
 /**
  * Class HasMany
  *
- * @package Intraxia\Jaxion
+ * @package    Intraxia\Jaxion
  * @subpackage Axolotl\Relationship
  */
 class HasMany extends Root {
@@ -52,10 +52,7 @@ class HasMany extends Root {
 			case 'object':
 				$target = $database->find_by(
 					$this->get_class(),
-					array(
-						$this->foreign_key => $this->get_model()->get_primary_id(),
-						'nopaging'         => true,
-					)
+					$this->make_target_params()
 				);
 				break;
 			case 'table': // @todo implement
@@ -81,5 +78,26 @@ class HasMany extends Root {
 			$this->type .
 			$this->foreign_key
 		);
+	}
+
+	/**
+	 * Gets the params required for the EntityManager to find the target models.
+	 *
+	 * @return array
+	 *
+	 * @throws LogicException
+	 */
+	protected function make_target_params() {
+		switch ( $this->get_relationship_type() ) {
+			case 'post_post':
+				return array(
+					$this->foreign_key => $this->get_model()->get_primary_id(),
+					'nopaging'         => true,
+				);
+			case 'post_term':
+				return array();
+			default:
+				throw new LogicException;
+		}
 	}
 }

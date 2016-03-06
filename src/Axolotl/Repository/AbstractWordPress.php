@@ -4,12 +4,15 @@ namespace Intraxia\Jaxion\Axolotl\Repository;
 use Intraxia\Jaxion\Axolotl\Collection;
 use Intraxia\Jaxion\Axolotl\Model;
 use Intraxia\Jaxion\Contract\Axolotl\UsesCustomTable;
+use LogicException;
 use WP_Error;
+use WP_Post;
+use WP_Term;
 
 /**
  * Class AbstractWordPress
  *
- * @package Intraxia\Jaxion
+ * @package    Intraxia\Jaxion
  * @subpackage Axolotl\Repository
  */
 abstract class AbstractWordPress extends AbstractRepository {
@@ -61,6 +64,8 @@ abstract class AbstractWordPress extends AbstractRepository {
 	 * {@inheritDoc}
 	 *
 	 * @param array $data
+	 *
+	 * @return Model|WP_Error
 	 */
 	public function create( $data = array() ) {
 		// TODO: Implement create() method.
@@ -97,7 +102,7 @@ abstract class AbstractWordPress extends AbstractRepository {
 	 * @return Model
 	 */
 	protected function make_model_from_wp_object( $object ) {
-		if ( $model = self::get_found( $this->class, $object->ID ) ) {
+		if ( $model = self::get_found( $this->class, $this->get_wp_object_id( $object ) ) ) {
 			return $model;
 		}
 
@@ -153,4 +158,28 @@ abstract class AbstractWordPress extends AbstractRepository {
 	 * @param Model $model
 	 */
 	abstract protected function fill_table_attrs_from_meta( Model $model );
+
+	/**
+	 * Gets the primary ID of the provided WordPress object.
+	 *
+	 * @param WP_Post|WP_Term $object
+	 *
+	 * @return int|null
+	 *
+	 * @throws LogicException
+	 */
+	protected function get_wp_object_id( $object ) {
+		if ( $object instanceof WP_Post ) {
+			return $object->ID;
+		}
+
+		if ( $object instanceof WP_Term ||
+		     // This is required for WP4.3- compatibility, when they returned stdClass.
+		     ( $object instanceof \stdClass && property_exists( $object, 'term_id' ) )
+		) {
+			return $object->term_id;
+		}
+
+		throw new LogicException;
+	}
 }

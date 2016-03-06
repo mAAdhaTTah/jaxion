@@ -5,6 +5,7 @@ use Intraxia\Jaxion\Axolotl\Relationship\Root as Relationship;
 use Intraxia\Jaxion\Axolotl\Repository\AbstractRepository;
 use Intraxia\Jaxion\Axolotl\Repository\CustomTable as CustomTableRepository;
 use Intraxia\Jaxion\Axolotl\Repository\WordPressPost as WordPressPostRepository;
+use Intraxia\Jaxion\Axolotl\Repository\WordPressTerm as WordPressTermRepository;
 use Intraxia\Jaxion\Contract\Axolotl\EntityManager as EntityManagerContract;
 use Intraxia\Jaxion\Contract\Axolotl\HasEagerRelationships;
 use Intraxia\Jaxion\Contract\Axolotl\UsesCustomTable;
@@ -194,6 +195,13 @@ class EntityManager implements EntityManagerContract {
 			'Intraxia\Jaxion\Contract\Axolotl\UsesWordPressPost'
 		) ) {
 			return new WordPressPostRepository( $this, $class );
+		}
+
+		if ( is_subclass_of(
+			$class,
+			'Intraxia\Jaxion\Contract\Axolotl\UsesWordPressTerm'
+		) ) {
+			return new WordPressTermRepository( $this, $class );
 		}
 
 		if ( is_subclass_of(

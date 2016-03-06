@@ -168,7 +168,7 @@ class ModelTest extends \PHPUnit_Framework_TestCase {
 	}
 
 	public function test_should_retrieve_related_keys() {
-		$keys = array( 'children' );
+		$keys = array( 'children', 'category' );
 
 		$model = new PostAndTableWithHasManyByParentIDModel;
 

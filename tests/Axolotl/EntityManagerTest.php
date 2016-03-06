@@ -4,9 +4,11 @@ namespace Intraxia\Jaxion\Test\Axolotl;
 use Intraxia\Jaxion\Axolotl\EntityManager;
 use Mockery;
 use stdClass;
+use WP_Error;
 use WP_Mock;
 use WP_Mock\Functions;
 use WP_Post;
+use WP_Term;
 
 class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 	/**
@@ -52,6 +54,11 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 	/**
 	 * @var string
 	 */
+	const TAXONOMY = 'Intraxia\Jaxion\Test\Axolotl\Stub\TaxonomyModel';
+
+	/**
+	 * @var string
+	 */
 	const TABLE = 'Intraxia\Jaxion\Test\Axolotl\Stub\TableModel';
 
 	public function setUp() {
@@ -62,6 +69,7 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 
 		Mockery::mock( 'overload:WP_Error' );
 		Mockery::mock( 'overload:WP_Post' );
+		Mockery::mock( 'overload:WP_Term' );
 
 		$this->wpdb         = $wpdb = Mockery::mock( 'wpdb' );
 		$this->wpdb->prefix = 'wp_';
@@ -81,7 +89,7 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 		$this->manager->find( self::MISIMPLEMENTED, 1 );
 	}
 
-	public function test_should_return_error_if_model_not_found() {
+	public function test_should_return_error_if_post_model_not_found() {
 		WP_Mock::wpPassthruFunction( '__', array(
 			'Entity not found',
 			'jaxion'
@@ -170,6 +178,56 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 		$this->assertSame( 'Text value', $result->text );
 	}
 
+	public function test_should_return_error_if_taxonomy_model_not_found() {
+		WP_Mock::wpFunction( 'get_term', array(
+			'times'  => 1,
+			'args'   => array( 1, 'category' ),
+			'return' => new WP_Error,
+		) );
+		WP_Mock::wpPassthruFunction( '__', array(
+			'Entity not found',
+			'jaxion'
+		) );
+		WP_Mock::wpFunction( 'is_wp_error', array(
+			'times'  => 2,
+			'return' => true
+		) );
+
+		$result = $this->manager->find( self::TAXONOMY, 1 );
+
+		$this->assertInstanceOf( 'WP_Error', $result );
+	}
+
+	public function test_should_return_taxonomy_term_model() {
+		$term          = new WP_Term;
+		$term->term_id = 1;
+		$term->slug    = 'Slug';
+
+		WP_Mock::wpFunction( 'get_term', array(
+			'times'  => 1,
+			'args'   => array( 1, 'category' ),
+			'return' => $term,
+		) );
+
+		WP_Mock::wpFunction( 'get_term_meta', array(
+			'times'  => 1,
+			'args'   => array( 1, '_ax_meta', true ),
+			'return' => 'Meta value',
+		) );
+
+		WP_Mock::wpFunction( 'is_wp_error', array(
+			'times'  => 2,
+			'return' => false
+		) );
+
+		$result = $this->manager->find( self::TAXONOMY, 1 );
+
+		$this->assertInstanceOf( self::TAXONOMY, $result );
+		$this->assertSame( $term->slug, $result->slug );
+		$this->assertSame( 'Meta value', $result->meta );
+		$this->assertSame( $term, $result->get_underlying_wp_object() );
+	}
+
 	public function test_should_return_found_post_and_meta_model_with_has_many_by_parent_id() {
 		$parent             = new WP_Post;
 		$parent->ID         = 1;
@@ -220,6 +278,22 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 			'return' => 'Text value 3',
 		) );
 
+		$term          = new WP_Term;
+		$term->term_id = 1;
+		$term->slug    = 'Slug';
+
+		WP_Mock::wpFunction( 'get_terms', array(
+			'times'  => 1,
+			'args'   => array( 'category', array() ),
+			'return' => array( $term ),
+		) );
+
+		WP_Mock::wpFunction( 'get_term_meta', array(
+			'times'  => 1,
+			'args'   => array( 1, '_ax_meta', true ),
+			'return' => 'Meta value',
+		) );
+
 		$result = $this->manager->find( self::POST_AND_META_WITH_HAS_MANY_BY_PARENT_ID, 1 );
 
 		$this->assertInstanceOf( self::POST_AND_META, $result );
@@ -232,6 +306,8 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase {
 		foreach ( $result->children as $child ) {
 			$this->assertInstanceOf( self::POST_AND_META_WITH_BELONGS_TO_ONE_BY_PARENT_ID, $child );
 		}
+
+		$this->assertSame( 'Meta value', $result->category->at( 0 )->meta );
 	}
 
 	public function test_find_should_throw_on_unimplemented_feature() {

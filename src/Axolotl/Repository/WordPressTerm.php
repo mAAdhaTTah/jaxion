@@ -2,36 +2,33 @@
 namespace Intraxia\Jaxion\Axolotl\Repository;
 
 use Intraxia\Jaxion\Axolotl\Model;
-use Intraxia\Jaxion\Contract\Axolotl\UsesWordPressPost;
-use WP_Post;
-
+use Intraxia\Jaxion\Contract\Axolotl\UsesWordPressTerm;
+use WP_Term;
 
 /**
- * Class WordPressPost
+ * Class WordPressTerm
  *
  * @package    Intraxia\Jaxion
  * @subpackage Axolotl\Repository
  */
-class WordPressPost extends AbstractWordPress {
+class WordPressTerm extends AbstractWordPress {
 	/**
 	 * {@inheritDoc}
 	 *
 	 * @param int $id
 	 *
-	 * @return WP_Post|false
+	 * @return WP_Term|false
 	 */
 	protected function get_wp_object_by_id( $id ) {
-		$args = array_merge( array(
-			'p' => (int) $id,
-		), $this->get_wp_query_args() );
+		$class = $this->class;
 
-		$object = $this->main->query( $args );
+		$term = get_term( $id, $class::get_taxonomy() );
 
-		if ( ! $object ) {
+		if ( is_wp_error( $term ) ) {
 			return false;
 		}
 
-		return $object[0];
+		return $term;
 	}
 
 	/**
@@ -39,15 +36,12 @@ class WordPressPost extends AbstractWordPress {
 	 *
 	 * @param array $params
 	 *
-	 * @return WP_Post[]
+	 * @return WP_Term[]
 	 */
 	protected function get_wp_objects_by_params( $params ) {
-		$args = array_merge(
-			$params,
-			$this->get_wp_query_args()
-		);
+		$class = $this->class;
 
-		return $this->main->query( $args );
+		return get_terms( $class::get_taxonomy(), $params );
 	}
 
 	/**
@@ -58,11 +52,11 @@ class WordPressPost extends AbstractWordPress {
 	protected function fill_table_attrs_from_meta( Model $model ) {
 		$model->unguard();
 
-		if ( $model instanceof UsesWordPressPost ) {
+		if ( $model instanceof UsesWordPressTerm ) {
 			foreach ( $model->get_table_keys() as $key ) {
 				$model->set_attribute(
 					$key,
-					get_post_meta(
+					get_term_meta(
 						$model->get_primary_id(),
 						$this->create_meta_key( $key ),
 						true
@@ -72,18 +66,5 @@ class WordPressPost extends AbstractWordPress {
 		}
 
 		$model->reguard();
-	}
-
-	/**
-	 * Retrieves the default query args for the provided class.
-	 *
-	 * @return array
-	 */
-	protected function get_wp_query_args() {
-		$class = $this->class;
-
-		return array(
-			'post_type' => $class::get_post_type(),
-		);
 	}
 }
