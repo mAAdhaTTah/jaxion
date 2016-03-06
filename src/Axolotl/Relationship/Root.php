@@ -99,7 +99,7 @@ abstract class Root {
 		if ( $this->get_model() instanceof UsesWordPressPost ) {
 			$relationship .= 'post';
 		} elseif ( $this->get_model() instanceof UsesWordPressTerm ) {
-			$relationship .= 'taxonomy';
+			$relationship .= 'term';
 		} elseif ( $this->get_model() instanceof UsesCustomTable ) {
 			$relationship .= 'table';
 		}

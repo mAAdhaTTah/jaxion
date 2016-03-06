@@ -105,6 +105,18 @@ class HasMany extends Root {
 				);
 			case 'post_term':
 				return array();
+			case 'term_post':
+				$model = $this->get_model();
+				return array(
+					'nopaging'  => true,
+					'tax_query' => array(
+						array(
+							'taxonomy' => $model::get_taxonomy(),
+							'field'    => 'term_id',
+							'terms'    => $model->get_primary_id(),
+						)
+					),
+				);
 			default:
 				throw new LogicException;
 		}
