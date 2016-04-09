@@ -1,5 +1,5 @@
 <?php
-namespace Intraxia\Jaxion\Model;
+namespace Intraxia\Jaxion\Axolotl;
 
 /**
  * Class PropertyDoesNotExistException
@@ -7,7 +7,7 @@ namespace Intraxia\Jaxion\Model;
  * Thrown when a property is not found on a given model.
  *
  * @package Intraxia\Jaxion
- * @subpackage Model
+ * @subpackage Axolotl
  */
 class PropertyDoesNotExistException extends \RuntimeException
 {
