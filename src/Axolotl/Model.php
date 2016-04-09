@@ -131,13 +131,28 @@ abstract class Model implements Serializes {
 	 * and any attributes not passed
 	 *
 	 * @param array $attributes
+	 *
+	 * @return $this
 	 */
 	public function refresh( array $attributes ) {
 		$this->clear();
 
+		return $this->merge( $attributes );
+	}
+
+	/**
+	 * Merges the provided attributes with the provided array.
+	 *
+	 * @param array $attributes
+	 *
+	 * @return $this
+	 */
+	public function merge( array $attributes ) {
 		foreach ( $attributes as $name => $value ) {
 			$this->set_attribute( $name, $value );
 		}
+
+		return $this;
 	}
 
 	/**
