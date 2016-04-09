@@ -45,7 +45,7 @@ abstract class AbstractWordPress extends AbstractRepository {
 	 *
 	 * @return Collection
 	 */
-	public function find_by( $params = array() ) {
+	public function find_by( array $params = array() ) {
 		$collection = new Collection(
 			array(),
 			array( 'model' => $this->class )
@@ -67,8 +67,29 @@ abstract class AbstractWordPress extends AbstractRepository {
 	 *
 	 * @return Model|WP_Error
 	 */
-	public function create( $data = array() ) {
-		// TODO: Implement create() method.
+	public function create( array $data = array() ) {
+		/**
+		 * Model object.
+		 *
+		 * @var Model $model
+		 */
+		$model = new $this->class( $data );
+
+		$id = $this->save_wp_object( $model );
+
+		if ( is_wp_error( $id ) ) {
+			return $id;
+		}
+
+		$model->set_attribute(
+			'object',
+			$this->get_wp_object_by_id( $id )
+		);
+
+		$this->save_table_attributes( $model );
+		$model->sync_original();
+
+		return $model;
 	}
 
 	/**
@@ -79,7 +100,21 @@ abstract class AbstractWordPress extends AbstractRepository {
 	 * @return Model|WP_Error
 	 */
 	public function persist( Model $model ) {
-		// TODO: Implement persist() method.
+		$id = $this->save_wp_object( $model );
+
+		if ( is_wp_error( $id ) ) {
+			return $id;
+		}
+
+		$model->set_attribute(
+			'object',
+			$this->get_wp_object_by_id( $id )
+		);
+
+		$this->save_table_attributes( $model );
+		$model->sync_original();
+
+		return $model;
 	}
 
 	/**
@@ -91,13 +126,23 @@ abstract class AbstractWordPress extends AbstractRepository {
 	 * @return Model|WP_Error
 	 */
 	public function delete( Model $model, $force = false ) {
-		// TODO: Implement delete() method.
+		$result = $this->delete_wp_object( $model, $force );
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		if ( $force ) {
+			$this->delete_table_attributes( $model );
+		}
+
+		return $model;
 	}
 
 	/**
 	 * Builds the provided model class from the a wp object.
 	 *
-	 * @param object $object
+	 * @param WP_Post|WP_Term $object
 	 *
 	 * @return Model
 	 */
@@ -123,6 +168,36 @@ abstract class AbstractWordPress extends AbstractRepository {
 	}
 
 	/**
+	 * Save the table attributes for the provided model
+	 * to either a custom table or the Model's object's
+	 * metadata.
+	 *
+	 * @param Model $model
+	 */
+	protected function save_table_attributes( Model $model ) {
+		if ( $model instanceof UsesCustomTable ) {
+			$this->save_table_attributes_to_table( $model );
+		} else {
+			$this->save_table_attributes_to_meta( $model );
+		}
+	}
+
+	/**
+	 * Delete the table attributes for the provided model
+	 * from either a custom table or the Model's object's
+	 * metadata.
+	 *
+	 * @param Model $model
+	 */
+	protected function delete_table_attributes( Model $model ) {
+		if ( $model instanceof UsesCustomTable ) {
+			$this->delete_table_attributes_from_table( $model );
+		} else {
+			$this->delete_table_attributes_from_meta( $model );
+		}
+	}
+
+	/**
 	 * Generates the unique meta key for
 	 * a WordPress model's data.
 	 *
@@ -130,7 +205,7 @@ abstract class AbstractWordPress extends AbstractRepository {
 	 *
 	 * @return string
 	 */
-	protected function create_meta_key( $key ) {
+	protected function make_meta_key( $key ) {
 		return "_{$this->prefix}_{$key}";
 	}
 
@@ -158,6 +233,41 @@ abstract class AbstractWordPress extends AbstractRepository {
 	 * @param Model $model
 	 */
 	abstract protected function fill_table_attrs_from_meta( Model $model );
+
+	/**
+	 * Save the provided WordPress object to the WordPress database.
+	 *
+	 * @param Model $model
+	 *
+	 * @return int|WP_Error
+	 */
+	abstract protected function save_wp_object( Model $model );
+
+	/**
+	 * Saves the provided Model's changed table attributes
+	 * to the appropriate meta table.
+	 *
+	 * @param Model $model
+	 */
+	abstract protected function save_table_attributes_to_meta( Model $model );
+
+	/**
+	 * Delete the WordPress object associated with the
+	 * provided model. If `$force` is true, the object
+	 * will be deleted directly rather than
+	 *
+	 * @param Model $model
+	 * @param bool  $force
+	 */
+	abstract protected function delete_wp_object( Model $model, $force = false );
+
+	/**
+	 * Delete all of the metadata associated with the object on
+	 * the provided model.
+	 *
+	 * @param Model $model
+	 */
+	abstract protected function delete_table_attributes_from_meta( Model $model );
 
 	/**
 	 * Gets the primary ID of the provided WordPress object.

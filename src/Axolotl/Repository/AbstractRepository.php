@@ -5,6 +5,7 @@ use Intraxia\Jaxion\Axolotl\Collection;
 use Intraxia\Jaxion\Axolotl\Model;
 use Intraxia\Jaxion\Axolotl\EntityManager;
 use Intraxia\Jaxion\Contract\Axolotl\UsesCustomTable;
+use LogicException;
 use WP_Error;
 use WP_Query;
 use wpdb;
@@ -115,7 +116,7 @@ abstract class AbstractRepository {
 	 *
 	 * @return Collection|WP_Error
 	 */
-	abstract public function find_by( $params = array() );
+	abstract public function find_by( array $params = array() );
 
 	/**
 	 * Create and saves a new model of the repository class
@@ -125,7 +126,7 @@ abstract class AbstractRepository {
 	 *
 	 * @return Model|WP_Error
 	 */
-	abstract public function create( $data = array() );
+	abstract public function create( array $data = array() );
 
 	/**
 	 * Updates a model with its latest data.
@@ -158,7 +159,7 @@ abstract class AbstractRepository {
 	/**
 	 * Fills the provided Model with attributes from its custom table.
 	 *
-	 * @param Model $model
+	 * @param Model|UsesCustomTable $model
 	 */
 	protected function fill_table_attrs_from_table( Model $model ) {
 		$sql[] = "SELECT * FROM {$this->make_table_name( $model )}";
@@ -178,6 +179,28 @@ abstract class AbstractRepository {
 		}
 
 		$model->reguard();
+	}
+
+	/**
+	 * Saves the Model's changed table attributes to its table.
+	 *
+	 * @param Model $model
+	 *
+	 * @throws LogicException
+	 */
+	protected function save_table_attributes_to_table( Model $model ) {
+		throw new LogicException;
+	}
+
+	/**
+	 * Deletes the Model's table attributes from its table.
+	 *
+	 * @param Model $model
+	 *
+	 * @throws LogicException
+	 */
+	protected function delete_table_attributes_from_table( Model $model ) {
+		throw new LogicException;
 	}
 
 	/**

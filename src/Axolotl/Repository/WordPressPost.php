@@ -6,6 +6,7 @@ use Intraxia\Jaxion\Axolotl\Relationship\BelongsToOne;
 use Intraxia\Jaxion\Axolotl\Relationship\HasMany;
 use Intraxia\Jaxion\Axolotl\Relationship\Root;
 use Intraxia\Jaxion\Contract\Axolotl\UsesWordPressPost;
+use WP_Error;
 use WP_Post;
 
 
@@ -67,7 +68,7 @@ class WordPressPost extends AbstractWordPress {
 					$key,
 					get_post_meta(
 						$model->get_primary_id(),
-						$this->create_meta_key( $key ),
+						$this->make_meta_key( $key ),
 						true
 					)
 				);
@@ -89,11 +90,19 @@ class WordPressPost extends AbstractWordPress {
 			'post_type'   => $class::get_post_type(),
 		);
 
-		/** @var Model $model */
+		/**
+		 * Model object.
+		 *
+		 * @var Model $model
+		 */
 		$model = new $this->class;
 
 		foreach ( $model->get_related_keys() as $related_key ) {
-			/** @var Root $relation */
+			/**
+			 * Relation object.
+			 *
+			 * @var Root $relation
+			 */
 			$relation = $model->{"related_{$related_key}"}();
 
 			if ( $relation instanceof HasMany &&
@@ -112,5 +121,62 @@ class WordPressPost extends AbstractWordPress {
 		}
 
 		return $args;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @param Model $model
+	 *
+	 * @return int|WP_Error
+	 */
+	protected function save_wp_object( Model $model ) {
+		$object = $model->get_underlying_wp_object();
+
+		return isset( $object->ID ) ?
+			wp_update_post( $object, true ) :
+			wp_insert_post( $object->to_array(), true );
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @param Model $model
+	 */
+	protected function save_table_attributes_to_meta( Model $model ) {
+		foreach ( $model->get_changed_table_attributes() as $attribute => $value ) {
+			update_post_meta(
+				$model->get_primary_id(),
+				$this->make_meta_key( $attribute ),
+				$value
+			);
+		}
+	}
+
+	/**
+	 * {@inheritdoc}
+	 *
+	 * @param Model $model
+	 * @param bool  $force
+	 */
+	protected function delete_wp_object( Model $model, $force = false ) {
+		wp_delete_post(
+			$model->get_primary_id(),
+			$force
+		);
+	}
+
+	/**
+	 * {@inheritdoc}
+	 *
+	 * @param Model $model
+	 */
+	protected function delete_table_attributes_from_meta( Model $model ) {
+		foreach ( $model->get_table_keys() as $key ) {
+			delete_post_meta(
+				$model->get_primary_id(),
+				$key
+			);
+		}
 	}
 }
