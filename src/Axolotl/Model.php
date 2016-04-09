@@ -162,6 +162,27 @@ abstract class Model implements Serializes {
 	}
 
 	/**
+	 * Retrieve an array of the attributes on the model
+	 * that have changed compared to the model's
+	 * original data.
+	 *
+	 * @return array
+	 */
+	public function get_changed_table_attributes() {
+		$changed = array();
+
+		foreach ( $this->get_table_attributes() as $attribute ) {
+			if ( $this->get_attribute( $attribute ) !==
+			     $this->get_original_attribute( $attribute )
+			) {
+				$changed[ $attribute ] = $this->get_attribute( $attribute );
+			}
+		}
+
+		return $changed;
+	}
+
+	/**
 	 * Get the model's underlying post.
 	 *
 	 * Returns the underlying WP_Post object for the model, representing
@@ -184,6 +205,27 @@ abstract class Model implements Serializes {
 	 */
 	public function get_original_underlying_wp_object() {
 		return $this->original['object'];
+	}
+
+	/**
+	 * Get the model attributes on the WordPress object
+	 * that have changed compared to the model's
+	 * original attributes.
+	 *
+	 * @return array
+	 */
+	public function get_changed_wp_object_attributes() {
+		$changed = array();
+
+		foreach ( $this->get_wp_object_keys() as $key ) {
+			if ( $this->get_attribute( $key ) !==
+			     $this->get_original_attribute( $key )
+			) {
+				$changed[ $key ] = $this->get_attribute( $key );
+			}
+		}
+
+		return $changed;
 	}
 
 	/**
@@ -494,9 +536,6 @@ abstract class Model implements Serializes {
 	/**
 	 * Retrieves the model attribute.
 	 *
-	 * If the attribute maps to the WP_Post, retrieves it from there.
-	 * Otherwise, checks if it's in the attributes array
-	 *
 	 * @param string $name
 	 *
 	 * @return mixed
@@ -519,7 +558,21 @@ abstract class Model implements Serializes {
 		}
 
 		return $value;
+	}
 
+	/**
+	 * Retrieve the model's original attribute value.
+	 *
+	 * @param string $name
+	 *
+	 * @return mixed
+	 *
+	 * @throws PropertyDoesNotExistException If property isn't found.
+	 */
+	public function get_original_attribute( $name ) {
+		$original = new static( $this->original );
+
+		return $original->get_attribute( $name );
 	}
 
 	/**
