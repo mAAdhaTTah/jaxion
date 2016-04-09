@@ -114,7 +114,7 @@ class HasMany extends Root {
 							'taxonomy' => $model::get_taxonomy(),
 							'field'    => 'term_id',
 							'terms'    => $model->get_primary_id(),
-						)
+						),
 					),
 				);
 			default:
