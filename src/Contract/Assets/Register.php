@@ -41,11 +41,15 @@ interface Register extends HasActions {
 
 	/**
 	 * Enqueues the admin & shared scripts on the Register.
+	 *
+	 * @param string $hook Passes a string representing the current page
 	 */
-	public function enqueue_admin_scripts();
+	public function enqueue_admin_scripts( $hook );
 
 	/**
 	 * Enqueues the admin & shared styles on the Register.
+	 *
+	 * @param string $hook Passes a string representing the current page
 	 */
-	public function enqueue_admin_styles();
+	public function enqueue_admin_styles( $hook );
 }

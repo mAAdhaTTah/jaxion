@@ -120,10 +120,10 @@ class Register implements RegisterContract {
 	/**
 	 * {@inheritDoc}
 	 */
-	public function enqueue_admin_scripts() {
+	public function enqueue_admin_scripts( $hook ) {
 		foreach ( $this->scripts as $script ) {
 			if ( in_array( $script['type'], array( 'admin', 'shared' ) ) ) {
-				$this->enqueue_script( $script );
+				$this->enqueue_script( $script, $hook );
 			}
 		}
 	}
@@ -131,10 +131,10 @@ class Register implements RegisterContract {
 	/**
 	 * {@inheritDoc}
 	 */
-	public function enqueue_admin_styles() {
+	public function enqueue_admin_styles( $hook ) {
 		foreach ( $this->styles as $style ) {
 			if ( in_array( $style['type'], array( 'admin', 'shared' ) ) ) {
-				$this->enqueue_style( $style );
+				$this->enqueue_style( $style, $hook );
 			}
 		}
 	}
@@ -168,10 +168,11 @@ class Register implements RegisterContract {
 	/**
 	 * Enqueues an individual script if the style's condition is met.
 	 *
-	 * @param array $script
+	 * @param array  $script  The script attachment callback.
+	 * @param string  $hook  The location hook.
 	 */
-	protected function enqueue_script( $script ) {
-		if ( $script['condition']() ) {
+	protected function enqueue_script( $script, $hook = false ) {
+		if ( $script['condition']( $hook ) ) {
 			wp_enqueue_script(
 				$script['handle'],
 				$this->url . $script['src'] . '.js',
@@ -197,10 +198,11 @@ class Register implements RegisterContract {
 	/**
 	 * Enqueues an individual stylesheet if the style's condition is met.
 	 *
-	 * @param array $style
+* @param array  $script  The script attachment callback.
+* @param string  $hook  The location hook.
 	 */
-	protected function enqueue_style( $style ) {
-		if ( $style['condition']() ) {
+	protected function enqueue_style( $style, $hook = false ) {
+		if ( $style['condition']( $hook ) ) {
 			wp_enqueue_style(
 				$style['handle'],
 				$this->url . $style['src'] . '.css',
